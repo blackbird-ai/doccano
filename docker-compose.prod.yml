@@ -59,10 +59,9 @@ services:
       - "--providers.docker.exposedbydefault=false"
       - "--entrypoints.websecure.address=:443"
       - '--entrypoints.web.address=:80'
-      - "traefik.docker.network=network-frontend"
       - "--certificatesresolvers.le.acme.tlschallenge=true"
       - '--certificatesresolvers.le.acme.httpchallenge.entrypoint=web'
-      - "--certificatesresolvers.le.acme.caserver=https://acme-staging-v02.api.letsencrypt.org/directory"
+      # - "--certificatesresolvers.le.acme.caserver=https://acme-staging-v02.api.letsencrypt.org/directory"
       - "--certificatesresolvers.le.acme.email=${ACME_EMAIL}"
       - "--certificatesresolvers.le.acme.storage=/letsencrypt/acme.json"
       - "--accesslog=true"
@@ -94,8 +93,8 @@ services:
       - doccano
     labels:
       - "traefik.http.routers.doccano.rule=Host(`${DOMAIN_NAME}`)"
-      - "traefik.port=8080"
       - "traefik.enable=true"
+      - "traefik.http.services.nginx-doccano.loadbalancer.server.port=8080"
       - "traefik.http.routers.doccano.tls=true"
       - "traefik.http.routers.doccano.tls.certresolver=le"
       - "traefik.http.routers.doccano.tls.domains[0].sans=${DOMAIN_NAME}"
