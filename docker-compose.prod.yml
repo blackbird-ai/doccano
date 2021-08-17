@@ -19,8 +19,7 @@ services:
     depends_on:
       - postgres
     networks:
-      - network-backend
-      - network-frontend
+      - doccano
 
   celery:
     build:
@@ -37,7 +36,7 @@ services:
       - postgres
       - rabbitmq
     networks:
-      - network-backend
+      - doccano
 
   rabbitmq:
     image: rabbitmq:3.8
@@ -47,7 +46,35 @@ services:
     ports:
       - 5672:5672
     networks:
-      - network-backend
+      - doccano
+
+
+  traefik:
+    image: "traefik:v2.0"
+    container_name: "traefik"
+    command:
+      - "--log.level=DEBUG"
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.websecure.address=:443"
+      - '--entrypoints.web.address=:80'
+      - "traefik.docker.network=network-frontend"
+      - "--certificatesresolvers.le.acme.tlschallenge=true"
+      - '--certificatesresolvers.le.acme.httpchallenge.entrypoint=web'
+      - "--certificatesresolvers.le.acme.caserver=https://acme-staging-v02.api.letsencrypt.org/directory"
+      - "--certificatesresolvers.le.acme.email=${ACME_EMAIL}"
+      - "--certificatesresolvers.le.acme.storage=/letsencrypt/acme.json"
+      - "--accesslog=true"
+    ports:
+      - "443:443"
+      - "80:80"
+      - "127.0.0.1:8085:8080"
+    volumes:
+      - traefik-certificates:/letsencrypt
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+    networks:
+      - doccano
 
   nginx:
     build:
@@ -60,11 +87,24 @@ services:
       - static_volume:/static
       - media:/media
     ports:
-      - 80:8080
+      - 127.0.0.1:8839:8080
     depends_on:
       - backend
     networks:
-      - network-frontend
+      - doccano
+    labels:
+      - "traefik.http.routers.doccano.rule=Host(`${DOMAIN_NAME}`)"
+      - "traefik.port=8080"
+      - "traefik.enable=true"
+      - "traefik.http.routers.doccano.tls=true"
+      - "traefik.http.routers.doccano.tls.certresolver=le"
+      - "traefik.http.routers.doccano.tls.domains[0].sans=${DOMAIN_NAME}"
+      - "traefik.http.routers.redirs.entrypoints=web"  
+      - "traefik.http.routers.redirs.rule=hostregexp(`{host:.+}`)"  
+      - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
+      - "traefik.http.routers.redirs.middlewares=redirect-to-https"  
+      
+
 
   postgres:
     image: postgres:13.1-alpine
@@ -77,13 +117,14 @@ services:
     ports: 
       - 127.0.0.1:5432:5432
     networks:
-      - network-backend
+      - doccano
 
 volumes:
   postgres_data:
   static_volume:
   media:
+  traefik-certificates:
 
 networks:
-  network-backend:
-  network-frontend:
+  doccano:
+
